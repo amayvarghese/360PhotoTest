@@ -109,28 +109,67 @@ export default function CaptureView() {
     // Generate sphere points
     const dots = useMemo(() => generateSpherePoints(20, 10), []);
 
-    const handleFinish = () => {
+    const handleFinish = async () => {
         if (capturedImages.length < 2) {
             alert("Capture at least 2 images to stitch.");
             return;
         }
         setIsStitching(true);
 
-        // Start worker
-        const worker = new Worker(new URL('../workers/stitcher.js', import.meta.url), { type: 'classic' });
+        try {
+            const formData = new FormData();
 
-        worker.onmessage = (e) => {
-            setIsStitching(false);
-            if (e.data.success) {
-                setStitchedResult(e.data.imageData);
-                console.log("Stitched!", e.data);
-            } else {
-                alert("Stitching failed: " + e.data.error);
+            // capturedImages are ImageData. Convert to Blob for upload.
+            // This is a bit expensive on main thread, but simple.
+            const blobs = await Promise.all(capturedImages.map(async (imgData, i) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = imgData.width;
+                canvas.height = imgData.height;
+                const ctx = canvas.getContext('2d');
+                ctx.putImageData(imgData, 0, 0);
+                return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+            }));
+
+            blobs.forEach((blob, i) => {
+                formData.append('images', blob, `image_${i}.jpg`);
+            });
+
+            // Use environment variable or default to localhost
+            const API_URL = import.meta.env.VITE_API_URL
+                ? `${import.meta.env.VITE_API_URL}/stitch`
+                : 'http://localhost:8000/stitch';
+
+            console.log(`Sending to backend at ${API_URL}...`);
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.detail || 'Stitching request failed');
             }
-            worker.terminate();
-        };
 
-        worker.postMessage({ type: 'stitch', images: capturedImages });
+            const blob = await response.blob();
+            const stitchedBitmap = await createImageBitmap(blob);
+
+            // Draw to a canvas to get ImageData for consistency with existing state (stitchedResult)
+            const canvas = document.createElement('canvas');
+            canvas.width = stitchedBitmap.width;
+            canvas.height = stitchedBitmap.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(stitchedBitmap, 0, 0);
+            const stitchedImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            setStitchedResult(stitchedImageData);
+            console.log("Stitched success!");
+
+        } catch (err) {
+            console.error(err);
+            alert("Stitching failed: " + err.message + "\n\nMake sure the Python backend is running!");
+        } finally {
+            setIsStitching(false);
+        }
     };
 
     useEffect(() => {
