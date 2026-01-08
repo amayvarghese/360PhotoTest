@@ -17,6 +17,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {"status": "running", "message": "Stitching backend is active. POST to /stitch to use."}
+
 @app.post("/stitch")
 async def stitch_images(images: List[UploadFile] = File(...)):
     print(f"Received {len(images)} images for stitching")
@@ -44,6 +48,9 @@ async def stitch_images(images: List[UploadFile] = File(...)):
 
         print("Stitching...")
         stitcher = cv2.Stitcher_create(cv2.Stitcher_PANORAMA)
+        # Reduce confidence threshold to accept matches more easily (default is usually around 1.0 or 0.6 depending on version)
+        stitcher.setPanoConfidenceThresh(0.1)
+        
         status, pano = stitcher.stitch(cv_images)
 
         if status != cv2.Stitcher_OK:
