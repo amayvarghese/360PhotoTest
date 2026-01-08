@@ -120,13 +120,36 @@ export default function CaptureView() {
             const formData = new FormData();
 
             // capturedImages are ImageData. Convert to Blob for upload.
-            // This is a bit expensive on main thread, but simple.
+            // Downscale to max 800px width to save bandwidth and server memory
             const blobs = await Promise.all(capturedImages.map(async (imgData, i) => {
                 const canvas = document.createElement('canvas');
-                canvas.width = imgData.width;
-                canvas.height = imgData.height;
+
+                // Calculate scale to keep aspect ratio but max width 800
+                const maxDim = 800;
+                let width = imgData.width;
+                let height = imgData.height;
+
+                if (width > maxDim || height > maxDim) {
+                    const ratio = Math.min(maxDim / width, maxDim / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
                 const ctx = canvas.getContext('2d');
-                ctx.putImageData(imgData, 0, 0);
+
+                // Draw original ImageData to a temp canvas first to scale it
+                // We can't draw ImageData directly with scaling
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = imgData.width;
+                tempCanvas.height = imgData.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.putImageData(imgData, 0, 0);
+
+                // Draw scaled
+                ctx.drawImage(tempCanvas, 0, 0, width, height);
+
                 return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
             }));
 
