@@ -41,12 +41,21 @@ async def stitch_images(images: List[UploadFile] = File(...)):
             if img is None:
                 print(f"Failed to decode {img_file.filename}")
                 continue
+            
+            # Debug: print image stats to catch blank/corrupt images
+            mean_val = np.mean(img)
+            std_val = np.std(img)
+            print(f"Image {img_file.filename}: Shape={img.shape}, Mean={mean_val:.2f}, Std={std_val:.2f}")
+            
+            if std_val < 5: # Threshold for "blank" or "flat" image
+                 print(f"Warning: Image {img_file.filename} has very low contrast (Std={std_val:.2f}). This might cause stitching errors.")
+
             cv_images.append(img)
             
         if len(cv_images) < 2:
              raise HTTPException(status_code=400, detail="Could not decode enough images")
 
-        print("Stitching...")
+        print(f"Starting stitch with {len(cv_images)} valid images...")
         stitcher = cv2.Stitcher_create(cv2.Stitcher_PANORAMA)
         # Reduce confidence threshold to accept matches more easily (default is usually around 1.0 or 0.6 depending on version)
         stitcher.setPanoConfidenceThresh(0.1)
