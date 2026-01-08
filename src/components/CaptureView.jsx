@@ -219,7 +219,7 @@ export default function CaptureView() {
 
             {/* AR Overlay */}
             <div className="overlay">
-                <Canvas camera={{ position: [0, 0, 0], fov: 75 }}>
+                <Canvas camera={{ position: [0, 0, 0], fov: 60 }}>
                     <SceneContent
                         setRotation={setCurrentRotation}
                         dots={dots}
