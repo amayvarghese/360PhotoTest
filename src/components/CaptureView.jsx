@@ -166,7 +166,11 @@ export default function CaptureView() {
 
         } catch (err) {
             console.error(err);
-            alert("Stitching failed: " + err.message + "\n\nMake sure the Python backend is running!");
+            // Show the URL we TRIED to hit, so we know if env var worked
+            const urlUsed = import.meta.env.VITE_API_URL
+                ? `${import.meta.env.VITE_API_URL}/stitch`
+                : 'http://localhost:8000/stitch';
+            alert(`Stitching failed!\n\nTarget: ${urlUsed}\nError: ${err.message}`);
         } finally {
             setIsStitching(false);
         }
@@ -272,6 +276,12 @@ export default function CaptureView() {
             <div className="ui-layer">
                 <div style={{ color: 'white', background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: '12px' }}>
                     {capturedDots.size} / {dots.length} Captured
+                </div>
+
+                {/* Debug Info for Mobile */}
+                <div style={{ pointerEvents: 'none', position: 'absolute', top: '60px', left: '10px', color: 'yellow', fontSize: '10px', maxWidth: '300px', background: 'rgba(0,0,0,0.7)', padding: '5px' }}>
+                    Debug: {import.meta.env.VITE_API_URL ? 'Remote' : 'Local'} <br />
+                    Status: {isStitching ? 'Stitching...' : 'Idle'} <br />
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
